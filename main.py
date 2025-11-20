@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
 import car_rl
+from PIL import ImageDraw, ImageFont, Image
+
+win_name = "AutoRL"
 
 image_height = 900
 image_width = 1600
@@ -14,7 +17,7 @@ end_point = None  # 드래그 끝 점
 circles = []  # 저장된 원들의 리스트
 
 # 마우스 콜백 함수 정의
-def draw_circle(event, x, y, flags, param):
+def draw_circle(event, x, y, flags, param): #실행
     global drawing, start_point, end_point, circles
 
     if event == cv2.EVENT_LBUTTONDOWN:  # 마우스 왼쪽 버튼을 누를 때
@@ -34,9 +37,24 @@ def draw_circle(event, x, y, flags, param):
         # 원 정보 저장
         circles.append((start_point + [radius]))
 
-def lobby_mouse(event,x,y,flags,param):
-    if event ==cv2.EVENT_LBUTTONUP:
-        print("test")
+def lobby_mouse(event,x,y,flags,param): #메인화면
+    global scene
+    if event == cv2.EVENT_LBUTTONUP:
+        if x >= 500 and x <=1100:
+            if y >= 450 and y <= 600:
+                scene = 2
+                cv2.setMouseCallback(win_name, draw_circle)
+            elif y >=650 and y<= 800:
+                scene=1
+                cv2.setMouseCallback(win_name, desc_mouse)
+
+def desc_mouse(event, x, y, flags, param): #설명화면
+    global scene
+    if event == cv2.EVENT_LBUTTONUP: # (1520, 30), (1570, 80)
+        if x >= 1520 and x <= 1570 and y>=30 and y<= 80:
+            scene = 0
+            cv2.setMouseCallback(win_name, lobby_mouse)
+            
 
 # 빈 이미지 생성
 image = np.full((image_height, image_width, 3), 255,dtype=np.uint8)
@@ -49,22 +67,33 @@ thickness = 10
 textsize, baseline = cv2.getTextSize("AutoRL", font, font_scale, thickness)
 cv2.putText(lobby_image, "AutoRL",((1600 - textsize[0])//2, 300), font, font_scale, (0,0,0), thickness)
 
-button_size = (600, 150)
-button_y_pos = 450
-cv2.rectangle(lobby_image, (800 - button_size[0]//2, button_y_pos),(800 + button_size[0]//2, button_y_pos+button_size[1]), (0,0,0), 5, )
+cv2.rectangle(lobby_image, (500, 450),(1100, 600), (0,0,0), 5) # (500,450,600,150)
 
-button_y_pos = 650
-cv2.rectangle(lobby_image, (800 - button_size[0]//2, button_y_pos),(800 + button_size[0]//2, button_y_pos+button_size[1]), (0,0,0), 5, )
+cv2.rectangle(lobby_image, (500, 650),(1100, 800), (0,0,0), 5) # (500,650,600,150)
+
+fontpath = "fonts/gulim.ttc"
+font = ImageFont.truetype(fontpath, 100)
+img_pil = Image.fromarray(lobby_image)
+draw = ImageDraw.Draw(img_pil)
+draw.text((700, 470),  "시작", font=font, fill=(0,0,0))
+draw.text((700, 670),  "설명", font=font, fill=(0,0,0))
+lobby_image = np.array(img_pil)
+
+#설명화면 생성
+desc_image = np.full((image_height, image_width, 3), 255,dtype=np.uint8)
+cv2.line(desc_image, (1520, 30), (1570, 80), (0,0,0), 3)
+cv2.line(desc_image, (1570, 30), (1520, 80), (0,0,0), 3)
 
 # 윈도우 생성 및 콜백 함수 등록
-cv2.namedWindow('car-rl')
-cv2.setMouseCallback('car-rl', draw_circle)
-cv2.setMouseCallback('car-rl', lobby_mouse)
+cv2.namedWindow(win_name)
+cv2.setMouseCallback(win_name, lobby_mouse)
 
 while True:
     # 이미지 복사본 생성
     if scene==0:
         img_copy = lobby_image.copy()
+    elif scene==1:
+        img_copy = desc_image.copy()
     elif scene ==2:
         img_copy = image.copy()
 
@@ -82,14 +111,14 @@ while True:
         cv2.circle(img_copy, start_point, temp_radius, (0, 0, 0), 2)
 
     # 이미지 표시
-    cv2.imshow('car-rl', img_copy)
+    cv2.imshow(win_name, img_copy)
 
     # 키 입력 대기
     key = cv2.waitKey(1) & 0xFF
     if key == 27:  # ESC 키를 누르면 종료
         break
     elif key == ord('s'):  # s키를 누르면 시작
-        env = car_rl.enviroment(20, circles)  #circles == roads
+        env = car_rl.enviroment(20, circles, winname=win_name)  #circles == roads
         env.train(100)
         break
 

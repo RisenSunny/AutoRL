@@ -62,7 +62,7 @@ def intersection_distance(seg1_start, seg1_end, seg2_start, seg2_end):
     return None
 
 
-def point_line_distance(point, line_start, line_end):
+def point_line_distance(point, line_start, line_end): #차 충돌 인식할 때 사용
     # 넘파이 배열로 변환
     point = np.array(point)
     line_start = np.array(line_start)
@@ -127,6 +127,7 @@ class car:
         self.sense_lines = self.create_senselines()
 
         self.distances = np.zeros((5), dtype = float)
+        self.x_marking_list = np.zeros((5,2), dtype = float)
 
 
     def reset(self, position = np.zeros((2), dtype = float), direction = np.zeros((2), dtype = float), reset_parameter = True):
@@ -237,7 +238,7 @@ class enviroment:
             box = np.intp(box)
 
             # 사각형 그리기
-            cv2.drawContours(image, [box], 0, (0, 255, 0), -1)
+            cv2.drawContours(image, [box], 0,((0, 255, 0) if self.cars_activity[i] else (0,0,255)), -1)
                         
             # 중심에 숫자 표시
             number = str(i)
@@ -250,8 +251,9 @@ class enviroment:
 
             cv2.putText(image, number, (text_x, text_y), font, font_scale, (0, 0, 0), font_thickness)
 
-            for sense_line in car.sense_lines:
-                cv2.line(image, np.intp(car.position), np.intp(sense_line), (125,125,125), 1)
+            for x_marking in car.x_marking_list:
+                cv2.line(image, np.intp(x_marking) - (5,5), np.intp(x_marking) + (5,5), (125,125,125), 1)
+                cv2.line(image, np.intp(x_marking) - (5,-5), np.intp(x_marking) + (5,-5), (125,125,125), 1)
             
         cv2.imshow(self.window_name, image)
 
@@ -307,19 +309,24 @@ class enviroment:
             if self.cars_activity[i]:
                 sense_lines = self.cars[i].sense_lines
                 distances = []
+                x_marking_list = []
                 for sense_line in sense_lines:
+                    x_marking = sense_line
                     close_distance = self.cars[i].sense_distance
                     for wall in self.walls:
+                        cross = intersection_distance(self.cars[i].position, sense_line, wall[0], wall[1])
+                        if  (cross) and (cross[1] < close_distance):
+                            close_distance = cross[1]
+                            x_marking = cross[0]
                         if point_line_distance(self.cars[i].position.copy(), wall[0], wall[1]) < 15:
                             self.cars_activity[i] = False
                             self.cars_done[i] = True
                             
                             break
-                        cross = intersection_distance(self.cars[i].position, sense_line, wall[0], wall[1])
-                        if  (cross) and (cross[1] < close_distance):
-                            close_distance = cross[1]
                     distances.append(close_distance)
+                    x_marking_list.append(x_marking)
                 self.cars[i].distances = np.array(distances) / car.sense_distance
+                self.cars[i].x_marking_list = np.array(x_marking_list)
 
 
 
