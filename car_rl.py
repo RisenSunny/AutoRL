@@ -237,7 +237,7 @@ class enviroment:
             box = np.intp(box)
 
             # 사각형 그리기
-            cv2.drawContours(image, [box], 0, (0, 255, 0), 2)
+            cv2.drawContours(image, [box], 0, (0, 255, 0), -1)
                         
             # 중심에 숫자 표시
             number = str(i)
